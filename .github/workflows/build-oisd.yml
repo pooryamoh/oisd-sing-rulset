@@ -32,31 +32,13 @@ jobs:
             
             # 1. Fetch the specific list
             # 2. Clean comments, AdBlock syntax, and whitespace
-            curl -sL "https://$LIST.oisd.nl/" | \
-              grep -E -v '^(#|!)' | \
-              sed -e 's/^||//' -e 's/\^$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | \
-              grep -v '^$' > domains.txt
-            
-            echo "Found $(wc -l < domains.txt) domains in $LIST. Generating JSON ruleset..."
-            
-            # Convert to sing-box JSON source format
-            jq -n -R -c '
-              [inputs | select(length > 0)] | 
-              {
-                "version": 2,
-                "rules": [
-                  {
-                    "domain_suffix": .
-                  }
-                ]
-              }
-            ' domains.txt > "oisd-$LIST.json"
-
-            echo "Compiling JSON to binary SRS format..."
-            sing-box rule-set compile "oisd-$LIST.json" --output "oisd-$LIST.srs"
-            
+            curl -sL "https://$LIST.oisd.nl/" > \
+              "oisd-$LIST.text"
+              
+            echo "Compiling TXT to binary SRS format..."
+            sing-box rule-set convert --type adguard --output "oisd-$LIST.srs" "oisd-$LIST.text"
             # Clean up the temp text file before the next loop iteration
-            rm domains.txt
+            rm "oisd-$LIST.text"
           done
 
       - name: Release to GitHub
@@ -67,9 +49,7 @@ jobs:
           body: "Automated daily build of the OISD NSFW and BIG lists for sing-box."
           make_latest: true
           files: |
-            oisd-nsfw.json
             oisd-nsfw.srs
-            oisd-big.json
             oisd-big.srs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
