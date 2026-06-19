@@ -3,6 +3,7 @@ name: Build sing-box OISD Rulesets
 on:
   schedule:
     - cron: "0 0 * * *" # Runs every day at midnight UTC
+      timezone: "Asia/Tehran"
   workflow_dispatch:
 
 jobs:
