@@ -1,10 +1,13 @@
-name: Build sing-box OISD Rulesets
+name: Build sing-box OISD & HaGeZi Rulesets
 
 on:
   schedule:
-    - cron: "0 0 * * *" # Runs every day at midnight UTC
+    - cron: "0 0 * * *" # Runs every day at midnight Tehran time
       timezone: "Asia/Tehran"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -12,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Install sing-box CLI
         run: |
@@ -24,33 +27,41 @@ jobs:
 
       - name: Fetch and Compile OISD Lists
         run: |
-          # Define the lists you want to pull from OISD
-          LISTS=("nsfw" "big")
+          OISD_LISTS=("nsfw" "big")
           
-          for LIST in "${LISTS[@]}"; do
+          for LIST in "${OISD_LISTS[@]}"; do
             echo "========================================"
             echo "Processing OISD $LIST list..."
+            curl -fsSL "https://$LIST.oisd.nl/" -o "oisd-$LIST.txt"
             
-            # 1. Fetch the specific list
-            # 2. Clean comments, AdBlock syntax, and whitespace
-            curl -sL "https://$LIST.oisd.nl/" > \
-              "oisd-$LIST.text"
-              
-            echo "Compiling TXT to binary SRS format..."
-            sing-box rule-set convert --type adguard --output "oisd-$LIST.srs" "oisd-$LIST.text"
-            # Clean up the temp text file before the next loop iteration
-            rm "oisd-$LIST.text"
+            echo "Compiling OISD $LIST to binary SRS format..."
+            sing-box rule-set convert --type adguard --output "oisd-$LIST.srs" "oisd-$LIST.txt"
+            rm "oisd-$LIST.txt"
+          done
+
+      - name: Fetch and Compile HaGeZi Lists
+        run: |
+          # Remove "pro" if you only want the NSFW list
+          HAGEZI_LISTS=("nsfw" "pro")
+          
+          for LIST in "${HAGEZI_LISTS[@]}"; do
+            echo "========================================"
+            echo "Processing HaGeZi $LIST list..."
+            curl -fsSL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/$LIST.txt" -o "hagezi-$LIST.txt"
+            
+            echo "Compiling HaGeZi $LIST to binary SRS format..."
+            sing-box rule-set convert --type adguard --output "hagezi-$LIST.srs" "hagezi-$LIST.txt"
+            rm "hagezi-$LIST.txt"
           done
 
       - name: Release to GitHub
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: "latest"
-          name: "Latest OISD Rulesets"
-          body: "Automated daily build of the OISD NSFW and BIG lists for sing-box."
+          name: "Latest OISD & HaGeZi Rulesets"
+          body: "Automated daily build of OISD and HaGeZi blocklists in sing-box binary (.srs) format."
           make_latest: true
           files: |
-            oisd-nsfw.srs
-            oisd-big.srs
+            *.srs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
